@@ -4,5 +4,5 @@ github.com/northbright/httputil v1.2.2 h1:x+TK5VeDL8UkPiHEKwwy3AIJ46uFzRdHmfpoHZ
 github.com/northbright/httputil v1.2.2/go.mod h1:ANMNxMzrd1ffD1SDsxtD1COSM2Nyq2Y6iqis8bqdDoU=
 github.com/northbright/iocopy v1.13.4 h1:2Zvf2jj2/ip3CagceonwA2IAYdJAk3rCRmbXYjzU0M0=
 github.com/northbright/iocopy v1.13.4/go.mod h1:xoprDDAKfZm6vDu9HEszIJPxI+287SMfUceyiIVJOaE=
-github.com/northbright/pathelper v1.0.8 h1:1YPXVUpIH8zBlzfd7h/Vtsktf3xrUbrKpYgBAbDU6xc=
-github.com/northbright/pathelper v1.0.8/go.mod h1:LBNv/o8YBdntBXTIWuzdhp+UzLqI4lJoCETHo1QM9Bw=
+github.com/northbright/pathelper v1.0.9 h1:maqqdZ/0c7bHooJ4BWoncAOkQkb9xUfnxWhdAHjB2Q0=
+github.com/northbright/pathelper v1.0.9/go.mod h1:1BNQUZB7Bx+sgnVoOZVtnOL1+0azONKaVXjZ6a9/vE8=
