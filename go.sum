@@ -1,5 +1,5 @@
-github.com/northbright/download v0.0.11 h1:qG5UCTBdeExFy18FdpwptIr4qrfaOY0NLeo5guSr9S0=
-github.com/northbright/download v0.0.11/go.mod h1:WXzGO3lsIhToyq5x2hNVjsFoV67cM1Mb+yIHM/QzRd0=
+github.com/northbright/download v0.0.12 h1:d8GJ+SFPzIixhBgRHfIc4WtnUJz+jEAI1+1yVzvjOrs=
+github.com/northbright/download v0.0.12/go.mod h1:WXzGO3lsIhToyq5x2hNVjsFoV67cM1Mb+yIHM/QzRd0=
 github.com/northbright/httputil v1.2.2 h1:x+TK5VeDL8UkPiHEKwwy3AIJ46uFzRdHmfpoHZRDd3w=
 github.com/northbright/httputil v1.2.2/go.mod h1:ANMNxMzrd1ffD1SDsxtD1COSM2Nyq2Y6iqis8bqdDoU=
 github.com/northbright/iocopy v1.13.4 h1:2Zvf2jj2/ip3CagceonwA2IAYdJAk3rCRmbXYjzU0M0=
