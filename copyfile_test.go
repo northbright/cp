@@ -14,7 +14,7 @@ import (
 
 func ExampleCopyFile() {
 	// Example 1. Copy a file and report progress.
-	log.Printf("\n============ Example 1 Begin ============")
+	log.Printf("\n============ CopyFile Example 1 Begin ============")
 
 	// Download a file.
 	url := "https://golang.google.cn/dl/go1.23.1.darwin-amd64.pkg"
@@ -61,6 +61,7 @@ func ExampleCopyFile() {
 		progress.OnWritten(func(total, prev, current int64, percent float32) {
 			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
+		// Interval to report progress.
 		progress.Interval(time.Millisecond*50),
 	)
 
@@ -74,10 +75,10 @@ func ExampleCopyFile() {
 		log.Printf("cp.CopyFile() OK, %v bytes copied", n)
 	}
 
-	log.Printf("\n------------ Example 1 End ------------")
+	log.Printf("\n------------ CopyFile Example 1 End ------------")
 
 	// Example 2. Stop a copy and resume it.
-	log.Printf("\n============ Example 2 Begin ============")
+	log.Printf("\n============ CopyFile Example 2 Begin ============")
 
 	// Create a timeout to emulate user's cancelation.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
@@ -97,6 +98,7 @@ func ExampleCopyFile() {
 		progress.OnWritten(func(total, prev, current int64, percent float32) {
 			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
+		// Interval to report progress.
 		progress.Interval(time.Millisecond*50),
 	)
 
@@ -126,6 +128,7 @@ func ExampleCopyFile() {
 		progress.OnWritten(func(total, prev, current int64, percent float32) {
 			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
+		// Interval to report progress.
 		progress.Interval(time.Millisecond*50),
 	)
 
@@ -145,7 +148,7 @@ func ExampleCopyFile() {
 	os.Remove(dst)
 	os.Remove(src)
 
-	log.Printf("\n------------ Example 2 End ------------")
+	log.Printf("\n------------ CopyFile Example 2 End ------------")
 
 	// Output:
 }
