@@ -14,6 +14,7 @@ import (
 
 func ExampleCopyFile() {
 	// Example 1. Copy a file and report progress.
+	log.Printf("\n============ Example 1 Begin ============")
 
 	// Download a file.
 	url := "https://golang.google.cn/dl/go1.23.1.darwin-amd64.pkg"
@@ -73,7 +74,11 @@ func ExampleCopyFile() {
 		log.Printf("cp.CopyFile() OK, %v bytes copied", n)
 	}
 
+	log.Printf("\n------------ Example 1 End ------------")
+
 	// Example 2. Stop a copy and resume it.
+	log.Printf("\n============ Example 2 Begin ============")
+
 	// Create a timeout to emulate user's cancelation.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
 	defer cancel()
@@ -105,9 +110,7 @@ func ExampleCopyFile() {
 		log.Printf("cp.CopyFile() OK, %v bytes copied", n)
 	}
 
-	log.Printf("call cp.CopyFile again to resume the copy, set copied to %v", n)
-
-	log.Printf("cp.CopyFile() starts...\nsrc: %v\ndst: %v", src, dst)
+	log.Printf("cp.CopyFile() starts again to resume coping...\nsrc: %v\ndst: %v\ncopied: %v", src, dst, n)
 
 	// Set copied to n to resume the copy.
 	n2, err := cp.CopyFile(
@@ -141,6 +144,8 @@ func ExampleCopyFile() {
 	// Remove the files after test's done.
 	os.Remove(dst)
 	os.Remove(src)
+
+	log.Printf("\n------------ Example 2 End ------------")
 
 	// Output:
 }
