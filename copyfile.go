@@ -14,7 +14,7 @@ import (
 
 var (
 	// ErrNotRegularFile represents the error that src is not a regular file.
-	ErrNotRegularFile = errors.New("not regular file")
+	ErrNotRegularFile = errors.New("not a regular file")
 )
 
 // CopyFile copies file from src to dst.
