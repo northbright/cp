@@ -17,14 +17,14 @@ func CopyDir(ctx context.Context, src, dst string) (copied int64, err error) {
 			return err
 		}
 
-		// d is dir.
+		// d is a dir.
 		if d.IsDir() {
 			// Create the dir even if the source dir is empty.
 			dstDir := pathelper.ReplacePrefix(path, src, dst)
 			return pathelper.CreateDirIfNotExists(dstDir, 0755)
 		}
 
-		// d is file.
+		// d is a file.
 		// Make dst file name.
 		dstFile := pathelper.ReplacePrefix(path, src, dst)
 		n, err := CopyFile(
