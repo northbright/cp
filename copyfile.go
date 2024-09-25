@@ -37,7 +37,7 @@ func CopyFile(ctx context.Context, src, dst string, copied int64, options ...pro
 	}
 
 	// Get the source file's size.
-	size := int64(fi.Size())
+	size := fi.Size()
 
 	// Make dest file's dir if it does not exist.
 	dir := filepath.Dir(dst)
