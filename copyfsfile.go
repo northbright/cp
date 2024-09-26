@@ -21,13 +21,13 @@ var (
 // CopyFile copies file from src to dst.
 // It returns the number of bytes copied.
 // ctx: [context.Context].
-// srcFS: file system of src.
+// fsys: file system of src.
 // src: source file path in the file system.
 // dst: destination file.
 // options: [progress.Option] used to report progress.
-func CopyFSFile(ctx context.Context, srcFS fs.FS, src, dst string, options ...progress.Option) (written int64, err error) {
+func CopyFSFile(ctx context.Context, fsys fs.FS, src, dst string, options ...progress.Option) (written int64, err error) {
 	// Open the src file.
-	fSrc, err := srcFS.Open(src)
+	fSrc, err := fsys.Open(src)
 	if err != nil {
 		return 0, err
 	}
