@@ -89,7 +89,56 @@ func ExampleCopyDir() {
 
 	log.Printf("\n------------ CopyDir Example 1 End ------------")
 
-	// Remove copied dir after test.
+	// Example 2. Copy dir and report progress.
+	log.Printf("\n============ CopyDir Example 2 Begin ============")
+
+	log.Printf("cp.CopyDir() starts...\nsrc: %v\ndst: %v", src, dst)
+	n, err = cp.CopyDir(
+		// Context.
+		context.Background(),
+		// Source dir.
+		src,
+		// Destination dir.
+		dst,
+		// CopyDirOption to report progress.
+		cp.OnCopyDir(func(
+			fileCount,
+			copiedFileCount,
+			totalSize,
+			copiedSize int64,
+			totalPercent float32,
+			currentFile string,
+			totalOfCurrentFile,
+			currentOfCurrentFile int64,
+			percent float32,
+		) {
+			log.Printf("\n******************\n%v / %v files copied\n%v / %v(%.2f%%) bytes copied\ncurrent coping file: %v\n%v / %v(%.2f%%) bytes copied",
+				copiedFileCount,
+				fileCount,
+				copiedSize,
+				totalSize,
+				totalPercent,
+				currentFile,
+				currentOfCurrentFile,
+				totalOfCurrentFile,
+				percent,
+			)
+		}),
+	)
+
+	if err != nil {
+		if err != context.Canceled && err != context.DeadlineExceeded {
+			log.Printf("cp.CopyDir() error: %v", err)
+			return
+		}
+		log.Printf("cp.CopyDir() stopped, cause: %v. %v bytes copied", err, n)
+	} else {
+		log.Printf("cp.CopyDir() OK, %v bytes copied", n)
+	}
+
+	log.Printf("\n------------ CopyDir Example 2 End ------------")
+
+	// Remove dirs after test.
 	os.RemoveAll(src)
 	os.RemoveAll(dst)
 
