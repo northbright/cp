@@ -90,6 +90,7 @@ func OnCopyDir(fn OnCopyDirFunc) CopyDirOption {
 }
 
 // OnCopyDirInterval returns the option to set interval of the callback.
+// If no interval option specified, it'll use [DefaultOnCopyDirInterval].
 func OnCopyDirInterval(d time.Duration) CopyDirOption {
 	return func(dc *dirCopier) {
 		dc.interval = d
