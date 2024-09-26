@@ -89,8 +89,8 @@ func OnCopyDir(fn OnCopyDirFunc) CopyDirOption {
 	}
 }
 
-// OnDirCopyInterval returns the option to set interval of the callback.
-func OnDirCopyInterval(d time.Duration) CopyDirOption {
+// OnCopyDirInterval returns the option to set interval of the callback.
+func OnCopyDirInterval(d time.Duration) CopyDirOption {
 	return func(dc *dirCopier) {
 		dc.interval = d
 	}
@@ -157,8 +157,9 @@ func CopyDir(ctx context.Context, src, dst string, options ...CopyDirOption) (co
 						fileCount,
 						copiedFileCount,
 						totalSize,
-						copied,
-						progress.Percent(totalSize, 0, copied),
+						// Use copied + current as new copied.
+						copied+current,
+						progress.Percent(totalSize, 0, copied+current),
 						path,
 						total,
 						current,

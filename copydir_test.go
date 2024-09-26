@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/northbright/cp"
 	"github.com/northbright/download"
@@ -124,6 +125,8 @@ func ExampleCopyDir() {
 				percent,
 			)
 		}),
+		// Interval to report progress.
+		cp.OnCopyDirInterval(time.Millisecond*50),
 	)
 
 	if err != nil {
