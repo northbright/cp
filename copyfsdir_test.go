@@ -16,7 +16,7 @@ var (
 	assets embed.FS
 )
 
-func ExampleDo() {
+func ExampleCopyFSDir() {
 	// Example 1. Copy dir from embeded file system to dst.
 	log.Printf("\n============ CopyFSDir Example 1 Begin ============")
 
