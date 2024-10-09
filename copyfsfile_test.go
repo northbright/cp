@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/northbright/cp"
-	"github.com/northbright/iocopy/progress"
 )
 
 var (
@@ -34,11 +33,11 @@ func ExampleCopyFSFile() {
 		// Dst.
 		dst,
 		// OnWrittenFunc to report progress.
-		progress.OnWritten(func(total, prev, current int64, percent float32) {
+		cp.OnCopyFile(func(total, prev, current int64, percent float32) {
 			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
 		// Interval to report progress.
-		progress.Interval(time.Millisecond*50),
+		cp.OnCopyFileInterval(time.Millisecond*50),
 	)
 
 	if err != nil {

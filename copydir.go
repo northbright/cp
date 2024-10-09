@@ -77,6 +77,7 @@ type OnCopyDirFunc func(
 type dirCopier struct {
 	fn       OnCopyDirFunc
 	interval time.Duration
+	buf      []byte
 }
 
 // CopyDirOption sets optional parameter to report copy dir progress.
@@ -97,12 +98,13 @@ func OnCopyDirInterval(d time.Duration) CopyDirOption {
 	}
 }
 
-// CopyDir copies files and sub-directories from src to dst recursively.
+// CopyDirBuffer copies files and sub-directories from src to dst recursively.
 // ctx: [context.Context].
 // src: source dir.
 // dst: destination dir.
+// buf: buffer used for the copy.
 // options: [CopyDirOption] to report copy dir progress.
-func CopyDir(ctx context.Context, src, dst string, options ...CopyDirOption) (copied int64, err error) {
+func CopyDirBuffer(ctx context.Context, src, dst string, buf []byte, options ...CopyDirOption) (copied int64, err error) {
 	di, err := DirInfo(src)
 	if err != nil {
 		return 0, err
@@ -142,7 +144,7 @@ func CopyDir(ctx context.Context, src, dst string, options ...CopyDirOption) (co
 
 		if dc.fn != nil {
 			// Copy file and report progress.
-			n, err := CopyFile(
+			n, err := CopyFileBuffer(
 				// Context.
 				ctx,
 				// Src.
@@ -151,8 +153,10 @@ func CopyDir(ctx context.Context, src, dst string, options ...CopyDirOption) (co
 				dstFile,
 				// Number of bytes copied previously.
 				0,
+				// Buffer,
+				buf,
 				// progress.Option to report progress.
-				progress.OnWritten(func(total, prev, current int64, percent float32) {
+				OnCopyFile(func(total, prev, current int64, percent float32) {
 					// Call OnCopyDir callback.
 					dc.fn(
 						fileCount,
@@ -168,7 +172,7 @@ func CopyDir(ctx context.Context, src, dst string, options ...CopyDirOption) (co
 					)
 				}),
 				// Interval to report the progress.
-				progress.Interval(dc.interval),
+				OnCopyFileInterval(dc.interval),
 			)
 			if err != nil {
 				return err
@@ -193,7 +197,7 @@ func CopyDir(ctx context.Context, src, dst string, options ...CopyDirOption) (co
 			return nil
 		} else {
 			// Copy file without reporting progress.
-			n, err := CopyFile(ctx, path, dstFile, 0)
+			n, err := CopyFileBuffer(ctx, path, dstFile, 0, buf)
 			if err != nil {
 				return err
 			}
@@ -205,4 +209,13 @@ func CopyDir(ctx context.Context, src, dst string, options ...CopyDirOption) (co
 		}
 	})
 	return copied, err
+}
+
+// CopyDir copies files and sub-directories from src to dst recursively.
+// ctx: [context.Context].
+// src: source dir.
+// dst: destination dir.
+// options: [CopyDirOption] to report copy dir progress.
+func CopyDir(ctx context.Context, src, dst string, options ...CopyDirOption) (copied int64, err error) {
+	return CopyDirBuffer(ctx, src, dst, nil, options...)
 }

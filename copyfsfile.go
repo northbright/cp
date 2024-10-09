@@ -18,14 +18,15 @@ var (
 	ErrNotFSRegularFile = errors.New("not a regular file in file system")
 )
 
-// CopyFile copies file from src to dst.
+// CopyFSFileBuffer copies file from src to dst.
 // It returns the number of bytes copied.
 // ctx: [context.Context].
 // fsys: file system of src.
 // src: source file path in the file system.
 // dst: destination file.
-// options: [progress.Option] used to report progress.
-func CopyFSFile(ctx context.Context, fsys fs.FS, src, dst string, options ...progress.Option) (written int64, err error) {
+// buf: buffer used for the copy.
+// options: [CopyFileOption] used to report progress.
+func CopyFSFileBuffer(ctx context.Context, fsys fs.FS, src, dst string, buf []byte, options ...CopyFileOption) (written int64, err error) {
 	// Open the src file.
 	fSrc, err := fsys.Open(src)
 	if err != nil {
@@ -60,8 +61,16 @@ func CopyFSFile(ctx context.Context, fsys fs.FS, src, dst string, options ...pro
 	}
 	defer fDst.Close()
 
+	// Set options.
+	fc := &fileCopier{}
+	for _, option := range options {
+		option(fc)
+	}
+
+	var writer io.Writer = fDst
+
 	// Check if callers need to report progress during IO copy.
-	if len(options) > 0 {
+	if fc.fn != nil {
 		// Create a progress.
 		p := progress.New(
 			// Total size.
@@ -70,12 +79,14 @@ func CopyFSFile(ctx context.Context, fsys fs.FS, src, dst string, options ...pro
 			// fs.File interface does not require Seek().
 			// Resume coping file from file system is not supported.
 			0,
-			// Options: OnWrittenFunc, Interval.
-			options...,
+			// OnWrittenFunc option.
+			progress.OnWritten(progress.OnWrittenFunc(fc.fn)),
+			// Interval option.
+			progress.Interval(fc.interval),
 		)
 
 		// Create a multiple writen and dupllicates writes to p.
-		mw := io.MultiWriter(fDst, p)
+		writer = io.MultiWriter(fDst, p)
 
 		// Create a channel.
 		// Send an empty struct to it to make progress goroutine exit.
@@ -86,8 +97,22 @@ func CopyFSFile(ctx context.Context, fsys fs.FS, src, dst string, options ...pro
 
 		// Starts a new goroutine to report progress until ctx.Done() and chExit receive an empty struct.
 		p.Start(ctx, chExit)
-		return iocopy.Copy(ctx, mw, fSrc)
-	} else {
-		return iocopy.Copy(ctx, fDst, fSrc)
 	}
+
+	if buf != nil && len(buf) != 0 {
+		return iocopy.CopyBuffer(ctx, writer, fSrc, buf)
+	} else {
+		return iocopy.Copy(ctx, writer, fSrc)
+	}
+}
+
+// CopyFSFile copies file from src to dst.
+// It returns the number of bytes copied.
+// ctx: [context.Context].
+// fsys: file system of src.
+// src: source file path in the file system.
+// dst: destination file.
+// options: [CopyFileOption] used to report progress.
+func CopyFSFile(ctx context.Context, fsys fs.FS, src, dst string, options ...CopyFileOption) (written int64, err error) {
+	return CopyFSFileBuffer(ctx, fsys, src, dst, nil, options...)
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/northbright/iocopy"
 	"github.com/northbright/iocopy/progress"
@@ -15,16 +16,47 @@ import (
 var (
 	// ErrNotRegularFile represents the error that src is not a regular file.
 	ErrNotRegularFile = errors.New("not a regular file")
+
+	// Default interval of OnCopyFile.
+	DefaultOnCopyFileInterval = time.Millisecond * 500
 )
 
-// CopyFile copies file from src to dst.
+type fileCopier struct {
+	fn       OnCopyFileFunc
+	interval time.Duration
+}
+
+// CopyFileOption sets optional parameter to report copy dir progress.
+type CopyFileOption func(fc *fileCopier)
+
+// OnCopyFileFunc is the callback function when bytes are copied successfully.
+// See [progress.OnWrittenFunc].
+type OnCopyFileFunc progress.OnWrittenFunc
+
+// OnCopyFile returns the option to set callback to report progress.
+func OnCopyFile(fn OnCopyFileFunc) CopyFileOption {
+	return func(fc *fileCopier) {
+		fc.fn = fn
+	}
+}
+
+// OnCopyFileInterval returns the option to set interval of the callback.
+// If no interval option specified, it'll use [DefaultOnCopyFileInterval].
+func OnCopyFileInterval(d time.Duration) CopyFileOption {
+	return func(fc *fileCopier) {
+		fc.interval = d
+	}
+}
+
+// CopyFileBuffer copies file from src to dst.
 // It returns the number of bytes copied.
 // ctx: [context.Context].
 // src: source file.
 // dst: destination file.
 // copied: number of bytes copied previously. It's used to resume previous copy.
-// options: [progress.Option] used to report progress.
-func CopyFile(ctx context.Context, src, dst string, copied int64, options ...progress.Option) (written int64, err error) {
+// buf: buffer used for the copy.
+// options: [CopyFileOption] used to report progress.
+func CopyFileBuffer(ctx context.Context, src, dst string, copied int64, buf []byte, options ...CopyFileOption) (written int64, err error) {
 	// Get src file info.
 	fi, err := os.Lstat(src)
 	if err != nil {
@@ -77,20 +109,30 @@ func CopyFile(ctx context.Context, src, dst string, copied int64, options ...pro
 		defer fDst.Close()
 	}
 
+	// Set options.
+	fc := &fileCopier{}
+	for _, option := range options {
+		option(fc)
+	}
+
+	var writer io.Writer = fDst
+
 	// Check if callers need to report progress during IO copy.
-	if len(options) > 0 {
+	if fc.fn != nil {
 		// Create a progress.
 		p := progress.New(
 			// Total size.
 			size,
 			// Number of bytes copied previously.
 			copied,
-			// Options: OnWrittenFunc, Interval.
-			options...,
+			// OnWrittenFunc option.
+			progress.OnWritten(progress.OnWrittenFunc(fc.fn)),
+			// Interval option.
+			progress.Interval(fc.interval),
 		)
 
 		// Create a multiple writen and dupllicates writes to p.
-		mw := io.MultiWriter(fDst, p)
+		writer = io.MultiWriter(fDst, p)
 
 		// Create a channel.
 		// Send an empty struct to it to make progress goroutine exit.
@@ -101,9 +143,22 @@ func CopyFile(ctx context.Context, src, dst string, copied int64, options ...pro
 
 		// Starts a new goroutine to report progress until ctx.Done() and chExit receive an empty struct.
 		p.Start(ctx, chExit)
-		return iocopy.Copy(ctx, mw, fSrc)
-	} else {
-		return iocopy.Copy(ctx, fDst, fSrc)
 	}
 
+	if buf != nil && len(buf) != 0 {
+		return iocopy.CopyBuffer(ctx, writer, fSrc, buf)
+	} else {
+		return iocopy.Copy(ctx, writer, fSrc)
+	}
+}
+
+// CopyFile copies file from src to dst.
+// It returns the number of bytes copied.
+// ctx: [context.Context].
+// src: source file.
+// dst: destination file.
+// copied: number of bytes copied previously. It's used to resume previous copy.
+// options: [CopyFileOption] used to report progress.
+func CopyFile(ctx context.Context, src, dst string, copied int64, options ...CopyFileOption) (written int64, err error) {
+	return CopyFileBuffer(ctx, src, dst, copied, nil, options...)
 }

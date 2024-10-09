@@ -9,7 +9,6 @@ import (
 
 	"github.com/northbright/cp"
 	"github.com/northbright/download"
-	"github.com/northbright/iocopy/progress"
 )
 
 func ExampleCopyFile() {
@@ -57,12 +56,12 @@ func ExampleCopyFile() {
 		dst,
 		// Number of bytes copied previously.
 		0,
-		// OnWrittenFunc to report progress.
-		progress.OnWritten(func(total, prev, current int64, percent float32) {
+		// OnCopyFile the option to set the callback to report progress.
+		cp.OnCopyFile(func(total, prev, current int64, percent float32) {
 			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
 		// Interval to report progress.
-		progress.Interval(time.Millisecond*50),
+		cp.OnCopyFileInterval(time.Millisecond*50),
 	)
 
 	if err != nil {
@@ -94,12 +93,12 @@ func ExampleCopyFile() {
 		dst,
 		// Number of bytes copied previously.
 		0,
-		// OnWrittenFunc to report progress.
-		progress.OnWritten(func(total, prev, current int64, percent float32) {
+		// OnCopyFile the option to set the callback to report progress.
+		cp.OnCopyFile(func(total, prev, current int64, percent float32) {
 			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
 		// Interval to report progress.
-		progress.Interval(time.Millisecond*50),
+		cp.OnCopyFileInterval(time.Millisecond*50),
 	)
 
 	if err != nil {
@@ -124,12 +123,12 @@ func ExampleCopyFile() {
 		dst,
 		// Number of bytes copied previously.
 		n,
-		// OnWrittenFunc to report progress.
-		progress.OnWritten(func(total, prev, current int64, percent float32) {
+		// OnCopyFile the option to set the callback to report progress.
+		cp.OnCopyFile(func(total, prev, current int64, percent float32) {
 			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
 		// Interval to report progress.
-		progress.Interval(time.Millisecond*50),
+		cp.OnCopyFileInterval(time.Millisecond*50),
 	)
 
 	if err != nil {
