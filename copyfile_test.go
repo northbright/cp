@@ -28,8 +28,6 @@ func ExampleCopyFile() {
 		url,
 		// Destination.
 		dst,
-		// Number of bytes copied previously.
-		0,
 	)
 
 	if err != nil {
@@ -54,13 +52,11 @@ func ExampleCopyFile() {
 		src,
 		// Destination file.
 		dst,
-		// Number of bytes copied previously.
-		0,
-		// OnCopyFile the option to set the callback to report progress.
+		// Option to set OnCopyFileFunc to report progress.
 		cp.OnCopyFile(func(total, prev, current int64, percent float32) {
 			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
-		// Interval to report progress.
+		// Option to set interval to report progress.
 		cp.OnCopyFileInterval(time.Millisecond*50),
 	)
 
@@ -91,13 +87,11 @@ func ExampleCopyFile() {
 		src,
 		// Destination file.
 		dst,
-		// Number of bytes copied previously.
-		0,
-		// OnCopyFile the option to set the callback to report progress.
+		// Option to set OnCopyFileFunc to report progress.
 		cp.OnCopyFile(func(total, prev, current int64, percent float32) {
 			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
-		// Interval to report progress.
+		// Option to set interval to report progress.
 		cp.OnCopyFileInterval(time.Millisecond*50),
 	)
 
@@ -121,13 +115,13 @@ func ExampleCopyFile() {
 		src,
 		// Destination file.
 		dst,
-		// Number of bytes copied previously.
-		n,
-		// OnCopyFile the option to set the callback to report progress.
+		// Option to set number of bytes copied previously.
+		cp.Copied(n),
+		// Option to set OnCopyFileFunc to report progress.
 		cp.OnCopyFile(func(total, prev, current int64, percent float32) {
 			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
-		// Interval to report progress.
+		// Option to set interval to report progress.
 		cp.OnCopyFileInterval(time.Millisecond*50),
 	)
 

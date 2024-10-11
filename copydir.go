@@ -10,11 +10,6 @@ import (
 	"github.com/northbright/pathelper"
 )
 
-var (
-	// Default interval of OnCopyDirFunc.
-	DefaultOnCopyDirInterval = time.Millisecond * 500
-)
-
 // DirInfoData contains dir information.
 type DirInfoData struct {
 	FileCount   int64
@@ -110,13 +105,10 @@ func CopyDirBuffer(ctx context.Context, src, dst string, buf []byte, options ...
 		return 0, err
 	}
 
+	// Set options.
 	dc := &dirCopier{}
 	for _, option := range options {
 		option(dc)
-	}
-
-	if dc.interval <= 0 {
-		dc.interval = DefaultOnCopyDirInterval
 	}
 
 	fileCount := di.FileCount
@@ -151,11 +143,9 @@ func CopyDirBuffer(ctx context.Context, src, dst string, buf []byte, options ...
 				path,
 				// Dst.
 				dstFile,
-				// Number of bytes copied previously.
-				0,
 				// Buffer,
 				buf,
-				// progress.Option to report progress.
+				// OnCopyFileFunc to report progress.
 				OnCopyFile(func(total, prev, current int64, percent float32) {
 					// Call OnCopyDir callback.
 					dc.fn(
@@ -197,7 +187,7 @@ func CopyDirBuffer(ctx context.Context, src, dst string, buf []byte, options ...
 			return nil
 		} else {
 			// Copy file without reporting progress.
-			n, err := CopyFileBuffer(ctx, path, dstFile, 0, buf)
+			n, err := CopyFileBuffer(ctx, path, dstFile, buf)
 			if err != nil {
 				return err
 			}

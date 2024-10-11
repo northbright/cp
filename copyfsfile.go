@@ -75,12 +75,8 @@ func CopyFSFileBuffer(ctx context.Context, fsys fs.FS, src, dst string, buf []by
 		p := progress.New(
 			// Total size.
 			size,
-			// Number of bytes copied previously.
-			// fs.File interface does not require Seek().
-			// Resume coping file from file system is not supported.
-			0,
-			// OnWrittenFunc option.
-			progress.OnWritten(progress.OnWrittenFunc(fc.fn)),
+			// OnWrittenFunc.
+			progress.OnWrittenFunc(fc.fn),
 			// Interval option.
 			progress.Interval(fc.interval),
 		)
@@ -99,7 +95,7 @@ func CopyFSFileBuffer(ctx context.Context, fsys fs.FS, src, dst string, buf []by
 		p.Start(ctx, chExit)
 	}
 
-	if buf != nil && len(buf) != 0 {
+	if len(buf) != 0 {
 		return iocopy.CopyBuffer(ctx, writer, fSrc, buf)
 	} else {
 		return iocopy.Copy(ctx, writer, fSrc)

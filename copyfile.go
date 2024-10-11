@@ -16,18 +16,24 @@ import (
 var (
 	// ErrNotRegularFile represents the error that src is not a regular file.
 	ErrNotRegularFile = errors.New("not a regular file")
-
-	// Default interval of OnCopyFile.
-	DefaultOnCopyFileInterval = time.Millisecond * 500
 )
 
 type fileCopier struct {
+	copied   int64
 	fn       OnCopyFileFunc
 	interval time.Duration
 }
 
 // CopyFileOption sets optional parameter to report copy dir progress.
 type CopyFileOption func(fc *fileCopier)
+
+// Copied returns an option to set the number of bytes copied previously.
+// It's used to resume previous copy.
+func Copied(copied int64) CopyFileOption {
+	return func(fc *fileCopier) {
+		fc.copied = copied
+	}
+}
 
 // OnCopyFileFunc is the callback function when bytes are copied successfully.
 // See [progress.OnWrittenFunc].
@@ -53,10 +59,9 @@ func OnCopyFileInterval(d time.Duration) CopyFileOption {
 // ctx: [context.Context].
 // src: source file.
 // dst: destination file.
-// copied: number of bytes copied previously. It's used to resume previous copy.
 // buf: buffer used for the copy.
 // options: [CopyFileOption] used to report progress.
-func CopyFileBuffer(ctx context.Context, src, dst string, copied int64, buf []byte, options ...CopyFileOption) (written int64, err error) {
+func CopyFileBuffer(ctx context.Context, src, dst string, buf []byte, options ...CopyFileOption) (written int64, err error) {
 	// Get src file info.
 	fi, err := os.Lstat(src)
 	if err != nil {
@@ -85,34 +90,34 @@ func CopyFileBuffer(ctx context.Context, src, dst string, copied int64, buf []by
 
 	var fDst *os.File
 
-	if copied > 0 {
+	// Set options.
+	fc := &fileCopier{}
+	for _, option := range options {
+		option(fc)
+	}
+
+	if fc.copied > 0 {
 		if fDst, err = os.OpenFile(dst, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err != nil {
 			return 0, err
 		}
 		defer fDst.Close()
 
-		if _, err = fSrc.Seek(copied, 0); err != nil {
+		if _, err = fSrc.Seek(fc.copied, 0); err != nil {
 			return 0, err
 		}
 
-		if _, err = fDst.Seek(copied, 0); err != nil {
+		if _, err = fDst.Seek(fc.copied, 0); err != nil {
 			return 0, err
 		}
 	} else {
-		if copied < 0 {
-			copied = 0
+		if fc.copied < 0 {
+			fc.copied = 0
 		}
 
 		if fDst, err = os.Create(dst); err != nil {
 			return 0, err
 		}
 		defer fDst.Close()
-	}
-
-	// Set options.
-	fc := &fileCopier{}
-	for _, option := range options {
-		option(fc)
 	}
 
 	var writer io.Writer = fDst
@@ -123,11 +128,11 @@ func CopyFileBuffer(ctx context.Context, src, dst string, copied int64, buf []by
 		p := progress.New(
 			// Total size.
 			size,
-			// Number of bytes copied previously.
-			copied,
-			// OnWrittenFunc option.
-			progress.OnWritten(progress.OnWrittenFunc(fc.fn)),
-			// Interval option.
+			// OnWrittenFunc.
+			progress.OnWrittenFunc(fc.fn),
+			// Option to set number of bytes copied previously.
+			progress.Prev(fc.copied),
+			// Option to set interval.
 			progress.Interval(fc.interval),
 		)
 
@@ -145,7 +150,7 @@ func CopyFileBuffer(ctx context.Context, src, dst string, copied int64, buf []by
 		p.Start(ctx, chExit)
 	}
 
-	if buf != nil && len(buf) != 0 {
+	if len(buf) != 0 {
 		return iocopy.CopyBuffer(ctx, writer, fSrc, buf)
 	} else {
 		return iocopy.Copy(ctx, writer, fSrc)
@@ -157,8 +162,7 @@ func CopyFileBuffer(ctx context.Context, src, dst string, copied int64, buf []by
 // ctx: [context.Context].
 // src: source file.
 // dst: destination file.
-// copied: number of bytes copied previously. It's used to resume previous copy.
 // options: [CopyFileOption] used to report progress.
-func CopyFile(ctx context.Context, src, dst string, copied int64, options ...CopyFileOption) (written int64, err error) {
-	return CopyFileBuffer(ctx, src, dst, copied, nil, options...)
+func CopyFile(ctx context.Context, src, dst string, options ...CopyFileOption) (written int64, err error) {
+	return CopyFileBuffer(ctx, src, dst, nil, options...)
 }

@@ -3,8 +3,8 @@ module github.com/northbright/cp
 go 1.23.0
 
 require (
-	github.com/northbright/download v0.0.13
-	github.com/northbright/iocopy v1.13.5
+	github.com/northbright/download v0.0.14
+	github.com/northbright/iocopy v1.13.6
 	github.com/northbright/pathelper v1.0.9
 )
 

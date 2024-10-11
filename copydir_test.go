@@ -50,8 +50,6 @@ func ExampleCopyDir() {
 			release.url,
 			// Destination.
 			dst,
-			// Number of bytes copied previously.
-			0,
 		)
 
 		if err != nil {

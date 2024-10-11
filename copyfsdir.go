@@ -51,13 +51,10 @@ func CopyFSDirBuffer(ctx context.Context, fsys fs.FS, src, dst string, buf []byt
 		return 0, err
 	}
 
+	// Set options.
 	dc := &dirCopier{}
 	for _, option := range options {
 		option(dc)
-	}
-
-	if dc.interval <= 0 {
-		dc.interval = DefaultOnCopyDirInterval
 	}
 
 	fileCount := di.FileCount
