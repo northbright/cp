@@ -136,7 +136,7 @@ func CopyFileBuffer(ctx context.Context, src, dst string, buf []byte, options ..
 			progress.Interval(fc.interval),
 		)
 
-		// Create a multiple writen and dupllicates writes to p.
+		// Create a multiple writer and dupllicates writes to p.
 		writer = io.MultiWriter(fDst, p)
 
 		// Create a channel.
