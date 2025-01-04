@@ -3,10 +3,10 @@ package cp
 import (
 	"context"
 	"io/fs"
+	"os"
 	"path/filepath"
-	"time"
 
-	"github.com/northbright/iocopy/progress"
+	"github.com/northbright/iocopy"
 	"github.com/northbright/pathelper"
 )
 
@@ -47,74 +47,23 @@ func DirInfo(dir string) (*DirInfoData, error) {
 	return di, err
 }
 
-// OnCopyDirFunc is the callback func to report copy dir progress.
-// fileCount: total count of the files in the dir and sub dirs.
-// copiedFileCount: count of the copied files.
-// totalSize: total size of the files in the dir and sub dirs.
-// copiedSize: size of copied files.
-// totalPercent: percent of copied size.
-// currentFile: name of currently coping file.
-// totalOfCurrentFile: size of currently coping file.
-// currentOfCurrentFile: copied size of currently coping file.
-// percent: percent of copied size of currently coping file.
-type OnCopyDirFunc func(
-	fileCount,
-	copiedFileCount,
-	totalSize,
-	copiedSize int64,
-	totalPercent float32,
-	currentFile string,
-	totalOfCurrentFile,
-	currentOfCurrentFile int64,
-	percent float32,
-)
-
-type dirCopier struct {
-	fn       OnCopyDirFunc
-	interval time.Duration
-	buf      []byte
-}
-
-// CopyDirOption sets optional parameter to report copy dir progress.
-type CopyDirOption func(dc *dirCopier)
-
-// OnCopyDir returns the option to set callback to report copy dir progress.
-func OnCopyDir(fn OnCopyDirFunc) CopyDirOption {
-	return func(dc *dirCopier) {
-		dc.fn = fn
-	}
-}
-
-// OnCopyDirInterval returns the option to set interval of the callback.
-// If no interval option specified, it'll use [DefaultOnCopyDirInterval].
-func OnCopyDirInterval(d time.Duration) CopyDirOption {
-	return func(dc *dirCopier) {
-		dc.interval = d
-	}
-}
-
-// CopyDirBuffer copies files and sub-directories from src to dst recursively.
-// ctx: [context.Context].
-// src: source dir.
-// dst: destination dir.
-// buf: buffer used for the copy.
-// options: [CopyDirOption] to report copy dir progress.
-func CopyDirBuffer(ctx context.Context, src, dst string, buf []byte, options ...CopyDirOption) (copied int64, err error) {
+// CopyDirBufferWithProgress copies files and sub-directories from src to dst recursively and returns the number of bytes of copied.
+// It accepts [context.Context] to make copy cancalable.
+// It also accepts callback function on bytes written to report progress.
+// fn: callback on bytes written.
+func CopyDirBufferWithProgress(
+	ctx context.Context,
+	src string,
+	dst string,
+	buf []byte,
+	fn iocopy.OnWrittenFunc) (n int64, err error) {
 	di, err := DirInfo(src)
 	if err != nil {
 		return 0, err
 	}
 
-	// Set options.
-	dc := &dirCopier{}
-	for _, option := range options {
-		option(dc)
-	}
-
-	fileCount := di.FileCount
-	copiedFileCount := int64(0)
 	totalSize := di.TotalSize
-	copied = 0
+	copied := int64(0)
 
 	err = filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		// Check err first.
@@ -131,81 +80,61 @@ func CopyDirBuffer(ctx context.Context, src, dst string, buf []byte, options ...
 		}
 
 		// d is a file.
+		fSrc, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer fSrc.Close()
+
 		// Make dst file name.
 		dstFile := pathelper.ReplacePrefix(path, src, dst)
-
-		if dc.fn != nil {
-			// Copy file and report progress.
-			n, err := CopyFileBuffer(
-				// Context.
-				ctx,
-				// Src.
-				path,
-				// Dst.
-				dstFile,
-				// Buffer,
-				buf,
-				// OnCopyFileFunc to report progress.
-				OnCopyFile(func(total, prev, current int64, percent float32) {
-					// Call OnCopyDir callback.
-					dc.fn(
-						fileCount,
-						copiedFileCount,
-						totalSize,
-						// Use copied + current as new copied.
-						copied+current,
-						progress.Percent(totalSize, 0, copied+current),
-						path,
-						total,
-						current,
-						percent,
-					)
-				}),
-				// Interval to report the progress.
-				OnCopyFileInterval(dc.interval),
-			)
-			if err != nil {
-				return err
-			}
-
-			copied += n
-			copiedFileCount += 1
-
-			// Call OnCopyDir callback when a file copied.
-			dc.fn(
-				fileCount,
-				copiedFileCount,
-				totalSize,
-				copied,
-				progress.Percent(totalSize, 0, copied),
-				path,
-				n,
-				n,
-				100,
-			)
-
-			return nil
-		} else {
-			// Copy file without reporting progress.
-			n, err := CopyFileBuffer(ctx, path, dstFile, buf)
-			if err != nil {
-				return err
-			}
-
-			copied += n
-			copiedFileCount += 1
-
-			return nil
+		fDst, err := os.Create(dstFile)
+		if err != nil {
+			return err
 		}
+		defer fDst.Close()
+
+		n, err := iocopy.CopyBufferWithProgress(
+			// Context.
+			ctx,
+			// Dst.
+			fDst,
+			// Src.
+			fSrc,
+			// Buffer.
+			buf,
+			// Total size of all files in the dir.
+			totalSize,
+			// Bytes of copied files.
+			copied,
+			// Callback to report progress.
+			fn,
+		)
+		if err != nil {
+			return err
+		}
+		copied += n
+		return nil
 	})
 	return copied, err
 }
 
-// CopyDir copies files and sub-directories from src to dst recursively.
-// ctx: [context.Context].
-// src: source dir.
-// dst: destination dir.
-// options: [CopyDirOption] to report copy dir progress.
-func CopyDir(ctx context.Context, src, dst string, options ...CopyDirOption) (copied int64, err error) {
-	return CopyDirBuffer(ctx, src, dst, nil, options...)
+// CopyDir copies files and sub-directories from src to dst recursively and returns the number of bytes copied.
+// It accepts [context.Context] to make copy cancalable.
+func CopyDir(ctx context.Context, src, dst string) (n int64, err error) {
+	return CopyDirBufferWithProgress(ctx, src, dst, nil, nil)
+}
+
+// CopyDirBuffer is buffered version of [CopyDir].
+func CopyDirBuffer(ctx context.Context, src, dst string, buf []byte) (n int64, err error) {
+	return CopyDirBufferWithProgress(ctx, src, dst, buf, nil)
+}
+
+// CopyDirWithProgress is non-buffered version of [CopyDirBufferWithProgress].
+func CopyDirWithProgress(
+	ctx context.Context,
+	src string,
+	dst string,
+	fn iocopy.OnWrittenFunc) (n int64, err error) {
+	return CopyDirBufferWithProgress(ctx, src, dst, nil, fn)
 }

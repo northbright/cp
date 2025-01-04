@@ -3,8 +3,9 @@ package cp
 import (
 	"context"
 	"io/fs"
+	"os"
 
-	"github.com/northbright/iocopy/progress"
+	"github.com/northbright/iocopy"
 	"github.com/northbright/pathelper"
 )
 
@@ -38,29 +39,24 @@ func FSDirInfo(fsys fs.FS, dir string) (*DirInfoData, error) {
 	return di, err
 }
 
-// CopyFSDirBuffer copies files and sub-directories of src from the file system to dst recursively.
-// ctx: [context.Context].
-// fsys: file system of src.
-// src: source dir.
-// dst: destination dir.
-// buf: buffer used for the copy.
-// options: [CopyDirOption] to report copy dir progress.
-func CopyFSDirBuffer(ctx context.Context, fsys fs.FS, src, dst string, buf []byte, options ...CopyDirOption) (copied int64, err error) {
+// CopyFSDirBufferWithProgress copies files and sub-directories of src from the file system to dst recursively and returns the number of bytes copied.
+// It accepts [context.Context] to make copy cancalable.
+// It also accepts callback function on bytes written to report progress.
+// fn: callback on bytes written.
+func CopyFSDirBufferWithProgress(
+	ctx context.Context,
+	fsys fs.FS,
+	src string,
+	dst string,
+	buf []byte,
+	fn iocopy.OnWrittenFunc) (n int64, err error) {
 	di, err := FSDirInfo(fsys, src)
 	if err != nil {
 		return 0, err
 	}
 
-	// Set options.
-	dc := &dirCopier{}
-	for _, option := range options {
-		option(dc)
-	}
-
-	fileCount := di.FileCount
-	copiedFileCount := int64(0)
 	totalSize := di.TotalSize
-	copied = 0
+	copied := int64(0)
 
 	err = fs.WalkDir(fsys, src, func(path string, d fs.DirEntry, err error) error {
 		// Check err first.
@@ -77,84 +73,61 @@ func CopyFSDirBuffer(ctx context.Context, fsys fs.FS, src, dst string, buf []byt
 		}
 
 		// d is a file.
+		fSrc, err := fsys.Open(path)
+		if err != nil {
+			return err
+		}
+		defer fSrc.Close()
+
 		// Make dst file name.
 		dstFile := pathelper.ReplacePrefix(path, src, dst)
-
-		if dc.fn != nil {
-			// Copy file and report progress.
-			n, err := CopyFSFileBuffer(
-				// Context.
-				ctx,
-				// File system.
-				fsys,
-				// Src.
-				path,
-				// Dst.
-				dstFile,
-				// Buffer.
-				buf,
-				// OnCopyFileFunc to report progress.
-				OnCopyFile(func(total, prev, current int64, percent float32) {
-					// Call OnCopyFSDir callback.
-					dc.fn(
-						fileCount,
-						copiedFileCount,
-						totalSize,
-						// Use copied + current as new copied.
-						copied+current,
-						progress.Percent(totalSize, 0, copied+current),
-						path,
-						total,
-						current,
-						percent,
-					)
-				}),
-				// Interval to report the progress.
-				OnCopyFileInterval(dc.interval),
-			)
-			if err != nil {
-				return err
-			}
-
-			copied += n
-			copiedFileCount += 1
-
-			// Call OnCopyFSDir callback when a file copied.
-			dc.fn(
-				fileCount,
-				copiedFileCount,
-				totalSize,
-				copied,
-				progress.Percent(totalSize, 0, copied),
-				path,
-				n,
-				n,
-				100,
-			)
-
-			return nil
-		} else {
-			// Copy file without reporting progress.
-			n, err := CopyFSFileBuffer(ctx, fsys, path, dstFile, buf)
-			if err != nil {
-				return err
-			}
-
-			copied += n
-			copiedFileCount += 1
-
-			return nil
+		fDst, err := os.Create(dstFile)
+		if err != nil {
+			return err
 		}
+		defer fDst.Close()
+
+		n, err := iocopy.CopyBufferWithProgress(
+			// Context.
+			ctx,
+			// Dst.
+			fDst,
+			// Src.
+			fSrc,
+			// Buffer.
+			buf,
+			// Total size of all files in the dir.
+			totalSize,
+			// Bytes of copied files.
+			copied,
+			// Callback to report progress.
+			fn,
+		)
+		if err != nil {
+			return err
+		}
+		copied += n
+		return nil
 	})
 	return copied, err
 }
 
-// CopyFSDir copies files and sub-directories of src from the file system to dst recursively.
-// ctx: [context.Context].
-// fsys: file system of src.
-// src: source dir.
-// dst: destination dir.
-// options: [CopyDirOption] to report copy dir progress.
-func CopyFSDir(ctx context.Context, fsys fs.FS, src, dst string, options ...CopyDirOption) (copied int64, err error) {
-	return CopyFSDirBuffer(ctx, fsys, src, dst, nil, options...)
+// CopyFSDir copies files and sub-directories of src from the file system to dst recursively and returns the number of bytes copied.
+func CopyFSDir(ctx context.Context, fsys fs.FS, src, dst string) (n int64, err error) {
+	return CopyFSDirBufferWithProgress(ctx, fsys, src, dst, nil, nil)
+}
+
+// CopyFSDirBuffer is buffered version of [CopyFSDir].
+func CopyFSDirBuffer(ctx context.Context, fsys fs.FS, src, dst string, buf []byte) (n int64, err error) {
+	return CopyFSDirBufferWithProgress(ctx, fsys, src, dst, buf, nil)
+}
+
+// CopyFSDirWithProgress is non-buffered version of [CopyFSDirBufferWithProgress].
+func CopyFSDirWithProgress(
+	ctx context.Context,
+	fsys fs.FS,
+	src string,
+	dst string,
+	fn iocopy.OnWrittenFunc) (n int64, err error) {
+	return CopyFSDirBufferWithProgress(ctx, fsys, src, dst, nil, fn)
 }

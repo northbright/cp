@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/northbright/cp"
+	"github.com/northbright/iocopy"
 )
 
 var (
@@ -16,14 +16,13 @@ var (
 	embededFiles embed.FS
 )
 
-func ExampleCopyFSFile() {
-	// Example 1. Copy a file in embeded file system and report progress.
-	log.Printf("\n============ CopyFSFile Example 1 Begin ============")
+func ExampleCopyFSFileBufferWithProgress() {
 	src := "copyfsfile.go"
 	dst := filepath.Join(os.TempDir(), "copyfsfile.go")
+	buf := make([]byte, 1024*640)
 
-	log.Printf("cp.CopyFSFile() starts...\nsrc: %v\ndst: %v", src, dst)
-	n, err := cp.CopyFSFile(
+	log.Printf("cp.CopyFSFileBufferWithProgress() starts...\nsrc: %v\ndst: %v", src, dst)
+	n, err := cp.CopyFSFileBufferWithProgress(
 		// Context.
 		context.Background(),
 		// Src file system.
@@ -32,28 +31,26 @@ func ExampleCopyFSFile() {
 		src,
 		// Dst.
 		dst,
-		// OnWrittenFunc to report progress.
-		cp.OnCopyFile(func(total, prev, current int64, percent float32) {
+		// Buffer.
+		buf,
+		// Callback to report progress.
+		iocopy.OnWrittenFunc(func(total, prev, current int64, percent float32) {
 			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
-		// Interval to report progress.
-		cp.OnCopyFileInterval(time.Millisecond*50),
 	)
 
 	if err != nil {
 		if err != context.Canceled && err != context.DeadlineExceeded {
-			log.Printf("cp.CopyFSFile() error: %v", err)
+			log.Printf("cp.CopyFSFileBufferWithProgress() error: %v", err)
 			return
 		}
-		log.Printf("cp.CopyFSFile() stopped, cause: %v. %v bytes copied", err, n)
+		log.Printf("cp.CopyFSFileBufferWithProgress() stopped, cause: %v. %v bytes copied", err, n)
 	} else {
-		log.Printf("cp.CopyFSFile() OK, %v bytes copied", n)
+		log.Printf("cp.CopyFSFileBufferWithProgress() OK, %v bytes copied", n)
 	}
 
 	// Remove the files after test's done.
 	os.Remove(dst)
-
-	log.Printf("\n------------ CopyFSFile Example 1 End ------------")
 
 	// Output:
 }

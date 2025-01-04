@@ -3,13 +3,11 @@ package cp
 import (
 	"context"
 	"errors"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 
 	"github.com/northbright/iocopy"
-	"github.com/northbright/iocopy/progress"
 	"github.com/northbright/pathelper"
 )
 
@@ -18,15 +16,17 @@ var (
 	ErrNotFSRegularFile = errors.New("not a regular file in file system")
 )
 
-// CopyFSFileBuffer copies file from src to dst.
-// It returns the number of bytes copied.
-// ctx: [context.Context].
-// fsys: file system of src.
-// src: source file path in the file system.
-// dst: destination file.
-// buf: buffer used for the copy.
-// options: [CopyFileOption] used to report progress.
-func CopyFSFileBuffer(ctx context.Context, fsys fs.FS, src, dst string, buf []byte, options ...CopyFileOption) (written int64, err error) {
+// CopyFSFileBufferWithProgress copies file from src to dst and returns the number of bytes copied.
+// It accepts [context.Context] to make copy cancalable.
+// It also accepts callback function on bytes written to report progress.
+// fn: callback on bytes written.
+func CopyFSFileBufferWithProgress(
+	ctx context.Context,
+	fsys fs.FS,
+	src string,
+	dst string,
+	buf []byte,
+	fn iocopy.OnWrittenFunc) (n int64, err error) {
 	// Open the src file.
 	fSrc, err := fsys.Open(src)
 	if err != nil {
@@ -61,54 +61,26 @@ func CopyFSFileBuffer(ctx context.Context, fsys fs.FS, src, dst string, buf []by
 	}
 	defer fDst.Close()
 
-	// Set options.
-	fc := &fileCopier{}
-	for _, option := range options {
-		option(fc)
-	}
-
-	var writer io.Writer = fDst
-
-	// Check if callers need to report progress during IO copy.
-	if fc.fn != nil {
-		// Create a progress.
-		p := progress.New(
-			// Total size.
-			size,
-			// OnWrittenFunc.
-			progress.OnWrittenFunc(fc.fn),
-			// Interval option.
-			progress.Interval(fc.interval),
-		)
-
-		// Create a multiple writer and dupllicates writes to p.
-		writer = io.MultiWriter(fDst, p)
-
-		// Create a channel.
-		// Send an empty struct to it to make progress goroutine exit.
-		chExit := make(chan struct{}, 1)
-		defer func() {
-			chExit <- struct{}{}
-		}()
-
-		// Starts a new goroutine to report progress until ctx.Done() and chExit receive an empty struct.
-		p.Start(ctx, chExit)
-	}
-
-	if len(buf) != 0 {
-		return iocopy.CopyBuffer(ctx, writer, fSrc, buf)
-	} else {
-		return iocopy.Copy(ctx, writer, fSrc)
-	}
+	return iocopy.CopyBufferWithProgress(ctx, fDst, fSrc, buf, size, 0, fn)
 }
 
-// CopyFSFile copies file from src to dst.
-// It returns the number of bytes copied.
-// ctx: [context.Context].
-// fsys: file system of src.
-// src: source file path in the file system.
-// dst: destination file.
-// options: [CopyFileOption] used to report progress.
-func CopyFSFile(ctx context.Context, fsys fs.FS, src, dst string, options ...CopyFileOption) (written int64, err error) {
-	return CopyFSFileBuffer(ctx, fsys, src, dst, nil, options...)
+// CopyFSFile copies file from src to dst and returns the number of bytes copied.
+// It accepts [context.Context] to make copy cancalable.
+func CopyFSFile(ctx context.Context, fsys fs.FS, src, dst string) (n int64, err error) {
+	return CopyFSFileBufferWithProgress(ctx, fsys, src, dst, nil, nil)
+}
+
+// CopyFSFileBuffer is buffered version of [CopyFSFile].
+func CopyFSFileBuffer(ctx context.Context, fsys fs.FS, src, dst string, buf []byte) (n int64, err error) {
+	return CopyFSFileBufferWithProgress(ctx, fsys, src, dst, buf, nil)
+}
+
+// CopyFSFileWithProgress is non-buffered version of [CopyFSFileBufferWithProgress].
+func CopyFSFileWithProgress(
+	ctx context.Context,
+	fsys fs.FS,
+	src string,
+	dst string,
+	fn iocopy.OnWrittenFunc) (n int64, err error) {
+	return CopyFSFileBufferWithProgress(ctx, fsys, src, dst, nil, fn)
 }

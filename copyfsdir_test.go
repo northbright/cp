@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/northbright/cp"
+	"github.com/northbright/iocopy"
 )
 
 var (
@@ -16,16 +16,14 @@ var (
 	assets embed.FS
 )
 
-func ExampleCopyFSDir() {
-	// Example 1. Copy dir from embeded file system to dst.
-	log.Printf("\n============ CopyFSDir Example 1 Begin ============")
-
+func ExampleCopyFSDirBufferWithProgress() {
 	src := "assets"
 	dst := filepath.Join(os.TempDir(), "copied_assets")
+	buf := make([]byte, 1024*640)
 
-	log.Printf("cp.CopyFSDir() starts...\nsrcFS: %v\nsrc: %v\ndst: %v", "embed.FS for assets", src, dst)
+	log.Printf("cp.CopyFSDirBufferWithProgress() starts...\nsrcFS: %v\nsrc: %v\ndst: %v", "embed.FS for assets", src, dst)
 
-	n, err := cp.CopyFSDir(
+	n, err := cp.CopyFSDirBufferWithProgress(
 		// Context.
 		context.Background(),
 		// File system.
@@ -34,79 +32,26 @@ func ExampleCopyFSDir() {
 		src,
 		// Dst.
 		dst,
-	)
-	if err != nil {
-		log.Printf("cp.CopyFSDir() error: %v", err)
-		return
-	}
-	if err != nil {
-		if err != context.Canceled && err != context.DeadlineExceeded {
-			log.Printf("cp.CopyFSDir() error: %v", err)
-			return
-		}
-		log.Printf("cp.CopyFSDir() stopped, cause: %v. %v bytes copied", err, n)
-	} else {
-		log.Printf("cp.CopyFSDir() OK, %v bytes copied", n)
-	}
-
-	log.Printf("\n------------ CopyFSDir Example 1 End ------------")
-
-	// Example 2. Copy dir from embeded file system to dst and report progress.
-	log.Printf("\n============ CopyFSDir Example 2 Begin ============")
-
-	log.Printf("cp.CopyFSDir() starts...\nsrcFS: %v\nsrc: %v\ndst: %v", "embed.FS for assets", src, dst)
-	n, err = cp.CopyFSDir(
-		// Context.
-		context.Background(),
-		// File system.
-		assets,
-		// Src.
-		src,
-		// Dst.
-		dst,
-		// CopyDirOption to report progress.
-		cp.OnCopyDir(func(
-			fileCount,
-			copiedFileCount,
-			totalSize,
-			copiedSize int64,
-			totalPercent float32,
-			currentFile string,
-			totalOfCurrentFile,
-			currentOfCurrentFile int64,
-			percent float32,
-		) {
-			log.Printf("\n******************\n%v / %v files copied\n%v / %v(%.2f%%) bytes copied\ncurrent coping file: %v\n%v / %v(%.2f%%) bytes copied",
-				copiedFileCount,
-				fileCount,
-				copiedSize,
-				totalSize,
-				totalPercent,
-				currentFile,
-				currentOfCurrentFile,
-				totalOfCurrentFile,
-				percent,
-			)
+		// Buffer.
+		buf,
+		// Callback to report progress.
+		iocopy.OnWrittenFunc(func(total, prev, current int64, percent float32) {
+			log.Printf("%v / %v(%.2f%%) coipied", prev+current, total, percent)
 		}),
-		// Interval to report progress.
-		cp.OnCopyDirInterval(time.Millisecond*10),
 	)
-
 	if err != nil {
-		log.Printf("cp.CopyFSDir() error: %v", err)
+		log.Printf("cp.CopyFSDirBufferWithProgress() error: %v", err)
 		return
 	}
 	if err != nil {
 		if err != context.Canceled && err != context.DeadlineExceeded {
-			log.Printf("cp.CopyFSDir() error: %v", err)
+			log.Printf("cp.CopyFSDirBufferWithProgress() error: %v", err)
 			return
 		}
-		log.Printf("cp.CopyFSDir() stopped, cause: %v. %v bytes copied", err, n)
+		log.Printf("cp.CopyFSDirBufferWithProgress() stopped, cause: %v. %v bytes copied", err, n)
 	} else {
-		log.Printf("cp.CopyFSDir() OK, %v bytes copied", n)
+		log.Printf("cp.CopyFSDirBufferWithProgress() OK, %v bytes copied", n)
 	}
-
-	log.Printf("\n------------ CopyFSDir Example 2 End ------------")
 
 	// Remove dir after test.
 	os.RemoveAll(dst)
