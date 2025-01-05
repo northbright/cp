@@ -113,6 +113,7 @@ func CopyFSDirBufferWithProgress(
 }
 
 // CopyFSDir copies files and sub-directories of src from the file system to dst recursively and returns the number of bytes copied.
+// It accepts [context.Context] to make copy cancalable.
 func CopyFSDir(ctx context.Context, fsys fs.FS, src, dst string) (n int64, err error) {
 	return CopyFSDirBufferWithProgress(ctx, fsys, src, dst, nil, nil)
 }
