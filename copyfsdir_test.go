@@ -32,6 +32,8 @@ func ExampleCopyFSDirBufferWithProgress() {
 		src,
 		// Dst.
 		dst,
+		// Desired file extensions. Leave it nil or empty for all files.
+		nil,
 		// Buffer.
 		buf,
 		// Callback to report progress.

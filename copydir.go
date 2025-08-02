@@ -106,7 +106,7 @@ func CopyDirBufferWithProgress(
 		}
 
 		// d is a file.
-		// Check if file ext matched desired exts.
+		// Check if file ext matches desired exts.
 		matched := false
 		if len(di.Exts) > 0 {
 			for _, ext := range di.Exts {

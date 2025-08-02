@@ -4,14 +4,20 @@ import (
 	"context"
 	"io/fs"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/northbright/iocopy"
 	"github.com/northbright/pathelper"
 )
 
 // FSDirInfo returns the dir info.
-func FSDirInfo(fsys fs.FS, dir string) (*DirInfoData, error) {
+func FSDirInfo(fsys fs.FS, dir string, exts []string) (*DirInfoData, error) {
 	di := &DirInfoData{}
+
+	for _, ext := range exts {
+		di.Exts = append(di.Exts, strings.ToLower(ext))
+	}
 
 	err := fs.WalkDir(fsys, dir, func(path string, d fs.DirEntry, err error) error {
 		// Check err first.
@@ -31,9 +37,21 @@ func FSDirInfo(fsys fs.FS, dir string) (*DirInfoData, error) {
 		if err != nil {
 			return err
 		}
-		di.FileCount += 1
-		di.TotalSize += fi.Size()
-		return nil
+
+		if len(di.Exts) > 0 {
+			for _, ext := range di.Exts {
+				if strings.ToLower(filepath.Ext(d.Name())) == ext {
+					di.FileCount += 1
+					di.TotalSize += fi.Size()
+					return nil
+				}
+			}
+			return nil
+		} else {
+			di.FileCount += 1
+			di.TotalSize += fi.Size()
+			return nil
+		}
 	})
 
 	return di, err
@@ -42,15 +60,21 @@ func FSDirInfo(fsys fs.FS, dir string) (*DirInfoData, error) {
 // CopyFSDirBufferWithProgress copies files and sub-directories of src from the file system to dst recursively and returns the number of bytes copied.
 // It accepts [context.Context] to make copy cancalable.
 // It also accepts callback function on bytes written to report progress.
+// ctx: context to stop the copy.
+// fsys: file system.
+// src: source dir.
+// dst: destination dir.
+// exts: desired file extensions. Leave it nil or empty for all files.
 // fn: callback on bytes written.
 func CopyFSDirBufferWithProgress(
 	ctx context.Context,
 	fsys fs.FS,
 	src string,
 	dst string,
+	exts []string,
 	buf []byte,
 	fn iocopy.OnWrittenFunc) (n int64, err error) {
-	di, err := FSDirInfo(fsys, src)
+	di, err := FSDirInfo(fsys, src, exts)
 	if err != nil {
 		return 0, err
 	}
@@ -73,6 +97,24 @@ func CopyFSDirBufferWithProgress(
 		}
 
 		// d is a file.
+		// Check if file ext matches desired exts.
+		matched := false
+		if len(di.Exts) > 0 {
+			for _, ext := range di.Exts {
+				if strings.ToLower(filepath.Ext(d.Name())) == ext {
+					matched = true
+					break
+				}
+			}
+		} else {
+			matched = true
+		}
+
+		// Skip if ext is not matched.
+		if !matched {
+			return nil
+		}
+
 		fSrc, err := fsys.Open(path)
 		if err != nil {
 			return err
@@ -114,13 +156,18 @@ func CopyFSDirBufferWithProgress(
 
 // CopyFSDir copies files and sub-directories of src from the file system to dst recursively and returns the number of bytes copied.
 // It accepts [context.Context] to make copy cancalable.
-func CopyFSDir(ctx context.Context, fsys fs.FS, src, dst string) (n int64, err error) {
-	return CopyFSDirBufferWithProgress(ctx, fsys, src, dst, nil, nil)
+// ctx: context to stop the copy.
+// fsys: file system.
+// src: source dir.
+// dst: destination dir.
+// exts: desired file extensions. Leave it nil or empty for all files.
+func CopyFSDir(ctx context.Context, fsys fs.FS, src, dst string, exts []string) (n int64, err error) {
+	return CopyFSDirBufferWithProgress(ctx, fsys, src, dst, exts, nil, nil)
 }
 
 // CopyFSDirBuffer is buffered version of [CopyFSDir].
-func CopyFSDirBuffer(ctx context.Context, fsys fs.FS, src, dst string, buf []byte) (n int64, err error) {
-	return CopyFSDirBufferWithProgress(ctx, fsys, src, dst, buf, nil)
+func CopyFSDirBuffer(ctx context.Context, fsys fs.FS, src, dst string, exts []string, buf []byte) (n int64, err error) {
+	return CopyFSDirBufferWithProgress(ctx, fsys, src, dst, exts, buf, nil)
 }
 
 // CopyFSDirWithProgress is non-buffered version of [CopyFSDirBufferWithProgress].
@@ -129,6 +176,7 @@ func CopyFSDirWithProgress(
 	fsys fs.FS,
 	src string,
 	dst string,
+	exts []string,
 	fn iocopy.OnWrittenFunc) (n int64, err error) {
-	return CopyFSDirBufferWithProgress(ctx, fsys, src, dst, nil, fn)
+	return CopyFSDirBufferWithProgress(ctx, fsys, src, dst, exts, nil, fn)
 }
