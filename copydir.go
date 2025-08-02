@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/northbright/iocopy"
 	"github.com/northbright/pathelper"
@@ -12,14 +13,22 @@ import (
 
 // DirInfoData contains dir information.
 type DirInfoData struct {
+	// Desired file extensions.
+	Exts        []string
 	FileCount   int64
 	SubDirCount int64
 	TotalSize   int64
 }
 
 // DirInfo returns the dir info.
-func DirInfo(dir string) (*DirInfoData, error) {
+// dir: directory to get info.
+// exts: desired file extensions. Leave it nil or empty for all files.
+func DirInfo(dir string, exts []string) (*DirInfoData, error) {
 	di := &DirInfoData{}
+
+	for _, ext := range exts {
+		di.Exts = append(di.Exts, strings.ToLower(ext))
+	}
 
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		// Check err first.
@@ -39,9 +48,21 @@ func DirInfo(dir string) (*DirInfoData, error) {
 		if err != nil {
 			return err
 		}
-		di.FileCount += 1
-		di.TotalSize += fi.Size()
-		return nil
+
+		if len(di.Exts) > 0 {
+			for _, ext := range di.Exts {
+				if strings.ToLower(filepath.Ext(d.Name())) == ext {
+					di.FileCount += 1
+					di.TotalSize += fi.Size()
+					return nil
+				}
+			}
+			return nil
+		} else {
+			di.FileCount += 1
+			di.TotalSize += fi.Size()
+			return nil
+		}
 	})
 
 	return di, err
@@ -50,14 +71,19 @@ func DirInfo(dir string) (*DirInfoData, error) {
 // CopyDirBufferWithProgress copies files and sub-directories from src to dst recursively and returns the number of bytes of copied.
 // It accepts [context.Context] to make copy cancalable.
 // It also accepts callback function on bytes written to report progress.
+// ctx: context to stop the copy.
+// src: source dir.
+// dst: destination dir.
+// exts: desired file extensions. Leave it nil or empty for all files.
 // fn: callback on bytes written.
 func CopyDirBufferWithProgress(
 	ctx context.Context,
 	src string,
 	dst string,
+	exts []string,
 	buf []byte,
 	fn iocopy.OnWrittenFunc) (n int64, err error) {
-	di, err := DirInfo(src)
+	di, err := DirInfo(src, exts)
 	if err != nil {
 		return 0, err
 	}
@@ -80,6 +106,24 @@ func CopyDirBufferWithProgress(
 		}
 
 		// d is a file.
+		// Check if file ext matched desired exts.
+		matched := false
+		if len(di.Exts) > 0 {
+			for _, ext := range di.Exts {
+				if strings.ToLower(filepath.Ext(d.Name())) == ext {
+					matched = true
+					break
+				}
+			}
+		} else {
+			matched = true
+		}
+
+		// Skip if ext is not matched.
+		if !matched {
+			return nil
+		}
+
 		fSrc, err := os.Open(path)
 		if err != nil {
 			return err
@@ -121,13 +165,17 @@ func CopyDirBufferWithProgress(
 
 // CopyDir copies files and sub-directories from src to dst recursively and returns the number of bytes copied.
 // It accepts [context.Context] to make copy cancalable.
-func CopyDir(ctx context.Context, src, dst string) (n int64, err error) {
-	return CopyDirBufferWithProgress(ctx, src, dst, nil, nil)
+// ctx: context to stop the copy.
+// src: source dir.
+// dst: destination dir.
+// exts: desired file extensions. Leave it nil or empty for all files.
+func CopyDir(ctx context.Context, src, dst string, exts []string) (n int64, err error) {
+	return CopyDirBufferWithProgress(ctx, src, dst, exts, nil, nil)
 }
 
 // CopyDirBuffer is buffered version of [CopyDir].
-func CopyDirBuffer(ctx context.Context, src, dst string, buf []byte) (n int64, err error) {
-	return CopyDirBufferWithProgress(ctx, src, dst, buf, nil)
+func CopyDirBuffer(ctx context.Context, src, dst string, exts []string, buf []byte) (n int64, err error) {
+	return CopyDirBufferWithProgress(ctx, src, dst, exts, buf, nil)
 }
 
 // CopyDirWithProgress is non-buffered version of [CopyDirBufferWithProgress].
@@ -135,6 +183,7 @@ func CopyDirWithProgress(
 	ctx context.Context,
 	src string,
 	dst string,
+	exts []string,
 	fn iocopy.OnWrittenFunc) (n int64, err error) {
-	return CopyDirBufferWithProgress(ctx, src, dst, nil, fn)
+	return CopyDirBufferWithProgress(ctx, src, dst, exts, nil, fn)
 }
